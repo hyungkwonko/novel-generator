@@ -3,7 +3,7 @@
 #### NOVEL GENERATING MODEL
 #### VER 1.0 (2018-5-16)
 #### HANYANG UNIV.
-#### HYUNGKWON KO
+#### HYUNG-KWON KO
 #### hyungkwonko@gmail.com
 ###############################################
 
@@ -16,12 +16,13 @@ from konlpy.tag import Kkma
 from collections import namedtuple
 from keras.models import Sequential
 from keras.layers import Dense, LSTM, Bidirectional, TimeDistributed, Dropout
+from keras.optimizers import Adam
 
 # Function to load the data from local repository and make it as a set of sentences comprised of its component words
 def load_data(data_dir):
-	# data = open("C://users//sunbl//desktop//gaechukja.txt",'r').read()
+	# data = open("C://users//sunbl//desktop//gaechukja3.txt",'r').read()
 	data = open(data_dir, 'r').read() # read out the whole data set
-	# 제거할 것들을 리스트안에 넣고 그걸 translalte 함수로 삭제함
+	# elements in the list will be removed using translate built-in function
 	havetoerase = ['\n', '?', '!', '-', ':', ',', '(', ')', '<', '>', '金', '明', '天', '掃', '舍', ':'] # this characters will be removed
 	data = data.translate({ord(x): '' for x in havetoerase})
 	documents = re.split('\.|\"', data)
@@ -68,11 +69,11 @@ def sent_vec(documents, sentvec_dim):
 		tags = [i]
 		docs.append(analyzedDocument(text, tags))
 	'''
-	min_count: If the appearance of the word is less than this number, then we will not consider that word
-	window: 
+	min_count: If the appearance of the word is less than this number, then we will ignore that word
+	window: number of words around the target word we will take into consideration
 	worker: 
 	'''
-	model = doc2vec.Doc2Vec(vector_size=sentvec_dim, window=10, min_count=2, workers=4, alpha=0.025, min_alpha=1e-4, seed=777)
+	model = doc2vec.Doc2Vec(vector_size=sentvec_dim, window=5, min_count=2, workers=4, alpha=0.025, min_alpha=1e-4, seed=777)
 	model.build_vocab(docs)  # Building vocabulary
 	model.train(docs, epochs=1000, total_examples=model.corpus_count)
 	sentence_vecs = np.zeros((len(train_docs), sentvec_dim))
@@ -87,19 +88,24 @@ def generate_model(hidden_dim, seq_length, sentvec_dim):
 	:param hidden_dim: dimension of each matrix in the cell(have to be power of 2, for example 256, 512. why?)
 	:param seq_length: sequences I will take into account for each step(will be 15 in this case)
 	:param sentvec_dim: dimension of the sentence vector (will be 300 in this case)
-	return_state: whether to return both h_t and c_t. default is false since we generally don't use c_t
+	return_state: whether to return both h_t and c_t. default is false since we generally don't use c_t(LTM, long term memory)
 	return _sequence: whether to print in sequence. For example, in case of many to many model, we have to set it TRUE. also for the stacked LSTM layers(obvious)
-	stateful: ??
+	stateful: "Stateless" is like resetting LSTM to an "initial state" for every new batch, and 'stateful' means you continue from where you are.
+	In both cases(stateless/stateful) LSTM is learning because the transition probabilities are updated.(this explanation bases on the markov chain)
+	naturally, we cannot shuffle the training orfer of batch if we set stateful==True(so training should go like batch1 -> batch2 -> ... -> batch last,  we can specify as shuffle=False)
 	:return: generated model
 	'''
 	model = Sequential()
 	# model.add(Bidirectional(LSTM(hidden_dim, return_sequences=True), input_shape=(seq_length, sentvec_dim), name='BiLSTM_layer')) # be careful what is inside the LSTM bracket and what is not
 	model.add(LSTM(hidden_dim, return_sequences=True, input_shape=(None, sentvec_dim), name='input_LSTM_layer'))
-	model.add(Dropout(0.2))
+	model.add(Dropout(0.5))
 	# model.add(LSTM(hidden_dim, return_sequences=True, name='LSTM_layer'))
 	model.add(LSTM(hidden_dim, return_sequences=True, name='LSTM_layer'))
-	model.add(TimeDistributed(Dense(sentvec_dim), name='Dense_layer'))  # 이건 wrapper layer라고 해서 3차원인 우리의 인풋을 2차원으로 바꿔서 output 출력이 가능해주게 변환해줘서 꼭 필요한거라고 하는데 정확히는 모르겟네여..흑흑
-	model.compile(loss="categorical_crossentropy", optimizer="rmsprop")
+	model.add(Dropout(0.5))
+	model.add(TimeDistributed(Dense(sentvec_dim), name='Dense_layer'))  # wrapper layer, required to make 3d input to 2d output
+	# model.compile(loss="categorical_crossentropy", optimizer="rmsprop")
+	optimizer = Adam(lr=0.0001, beta_1=0.9, beta_2=0.999, epsilon=None, decay=0.0, amsgrad=False)
+	model.compile(loss="mean_squared_error", optimizer=optimizer)
 	print("This is the architecture of our model!\n")
 	print(model.summary())
 	return model
@@ -152,8 +158,8 @@ def generate_text(model, generate_sent_num, sent_size, sentvec_dim, ix_to_char, 
 		# appending the last predicted character to sequence
 		X[0,i,:] = doc2vec_model.docvecs[ix] # new input x
 		print(ix_to_char[ix], end='.' + "\n") # end는 캐릭터별로 만들거를 붙여쓰려고 예를 들면 a 엔터 p 엔터 p 엔터 l  엔터 e 이렇게 안뽑고 apple 처럼 concatenated form으로 뽑을라고
-		y_vec = model.predict(X[:, :i+1, :])[0,0] # predicted y vector
-		y_candidate = doc2vec_model.docvecs.most_similar([y_vec], topn=7)  # 가장 비슷한 거 3개 뽑는다.
+		y_vec = model.predict(X[:, :i+1, :])[0,i] # predicted y vector
+		y_candidate = doc2vec_model.docvecs.most_similar([y_vec], topn=5)  # 가장 비슷한 거 3개 뽑는다.
 
 		# 샘플 펑션으로 랜덤하게 픽 하는거 구현해야함
 		# 예를 들면 topn=5개 중에서 3개 뽑는거 이런거..
@@ -167,10 +173,13 @@ def generate_text(model, generate_sent_num, sent_size, sentvec_dim, ix_to_char, 
 		print("1st sentence: " + ix_to_char[y_candidate[0][0]])
 		print("2nd sentence: " + ix_to_char[y_candidate[1][0]])
 		print("3rd sentence: " + ix_to_char[y_candidate[2][0]])
+		print("4th sentence: " + ix_to_char[y_candidate[3][0]])
+		print("5th sentence: " + ix_to_char[y_candidate[4][0]])
 		number = input("please choose one sentece: ")
 		print("\n")
 		ix = y_candidate[int(number)-1][0]
-		y_final.append(ix_to_char[ix]) # 위에서 뽑은 숫자를 다시 캐릭터로 변환하고 그걸 이제 append로 이어 붙임
+		# ix = int(number)
+		y_final.append(ix_to_char[ix]) # append into the list
 	print("\n")
 	print(y_final)
 	return ('. ').join(y_final) # concatenate the output

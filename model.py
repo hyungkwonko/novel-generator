@@ -3,7 +3,7 @@
 #### NOVEL GENERATING MODEL
 #### VER 1.0 (2018-5-16)
 #### HANYANG UNIV.
-#### HYUNGKWON KO
+#### HYUNG-KWON KO
 #### hyungkwonko@gmail.com
 ###############################################
 
@@ -25,9 +25,9 @@ ap.add_argument('-data_dir', default='C://users//sunbl//desktop//gaechukja.txt')
 ap.add_argument('-batch_size', type=int, default=15) # 배치 사이즈와 seq_length의 차이?
 ap.add_argument('-layer_num', type=int, default=2)
 ap.add_argument('-seq_length', type=int, default=15)
-ap.add_argument('-hidden_dim', type=int, default=256)
+ap.add_argument('-hidden_dim', type=int, default=128)
 ap.add_argument('-generate_sent_num', type=int, default=15)
-ap.add_argument('-sentvec_dim', type=int, default=300)
+ap.add_argument('-sentvec_dim', type=int, default=50)
 ap.add_argument('-epoch', type=int, default=200)
 # ap.add_argument('-mode', default='train')
 ap.add_argument('-weights', default='')
@@ -54,7 +54,7 @@ if WEIGHTS == '':
     epoch = 0
     while True: # run constantly to improve the performance
         print('\n\nEpoch: {}\n'.format(epoch))
-        model.fit(X, y, batch_size=10, verbose=1, epochs=1) # nb_epoch is deprecated, use epochs instead
+        model.fit(X, y, batch_size=100, verbose=1, epochs=1) # nb_epoch is deprecated, use epochs instead, verbose is an optional function showing the progress
         epoch += 1
         # generate_text(model, GENERATE_SENT_NUM, SENT_SIZE, ix_to_char)
         if epoch % 10 == 0: #  save the weights of  model for every 10 epochs
