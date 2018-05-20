@@ -20,7 +20,7 @@ from keras.optimizers import Adam
 
 # Function to load the data from local repository and make it as a set of sentences comprised of its component words
 def load_data(data_dir):
-	# data = open("C://users//sunbl//desktop//gaechukja3.txt",'r').read()
+	# data = open("C://users//sunbl//desktop//gaechukja.txt",'r').read()
 	data = open(data_dir, 'r').read() # read out the whole data set
 	# elements in the list will be removed using translate built-in function
 	havetoerase = ['\n', '?', '!', '-', ':', ',', '(', ')', '<', '>', '金', '明', '天', '掃', '舍', ':'] # this characters will be removed
@@ -96,10 +96,10 @@ def generate_model(hidden_dim, seq_length, sentvec_dim):
 	:return: generated model
 	'''
 	model = Sequential()
-	# model.add(Bidirectional(LSTM(hidden_dim, return_sequences=True), input_shape=(seq_length, sentvec_dim), name='BiLSTM_layer')) # be careful what is inside the LSTM bracket and what is not
-	model.add(LSTM(hidden_dim, return_sequences=True, input_shape=(None, sentvec_dim), name='input_LSTM_layer'))
+	model.add(Bidirectional(LSTM(hidden_dim, return_sequences=True), input_shape=(None, sentvec_dim), name='BiLSTM_layer')) # be careful what is inside the LSTM bracket and what is not
+	# model.add(LSTM(hidden_dim, return_sequences=True, input_shape=(None, sentvec_dim), name='input_LSTM_layer'))
 	model.add(Dropout(0.5))
-	# model.add(LSTM(hidden_dim, return_sequences=True, name='LSTM_layer'))
+	# model.add(LSTM(hidden_dim, return_sequences=True, name='LSTM_layer2'))
 	model.add(LSTM(hidden_dim, return_sequences=True, name='LSTM_layer'))
 	model.add(Dropout(0.5))
 	model.add(TimeDistributed(Dense(sentvec_dim), name='Dense_layer'))  # wrapper layer, required to make 3d input to 2d output
@@ -113,11 +113,13 @@ def generate_model(hidden_dim, seq_length, sentvec_dim):
 # if there is trained  model, we can just load it
 def load_model(hidden_dim, seq_length, sentvec_dim, weights):
 	model = Sequential()
-	# model.add(Bidirectional(LSTM(hidden_dim, return_sequences=True), input_shape=(seq_length, sentvec_dim), name='BiLSTM_layer'))
-	model.add(LSTM(hidden_dim, return_sequences=True, input_shape=(None, sentvec_dim), name='input_LSTM_layer'))
-	model.add(Dropout(0.2))
+	model.add(Bidirectional(LSTM(hidden_dim, return_sequences=True), input_shape=(None, sentvec_dim), name='BiLSTM_layer'))
+	# model.add(LSTM(hidden_dim, return_sequences=True, input_shape=(None, sentvec_dim), name='input_LSTM_layer'))
+	model.add(Dropout(0.5))
+	# model.add(LSTM(hidden_dim, return_sequences=True, name='LSTM_layer2'))
 	model.add(LSTM(hidden_dim, return_sequences=True, name='LSTM_layer'))
-	model.add(TimeDistributed(Dense(sentvec_dim), name='Dense_layer'))
+	model.add(Dropout(0.5))
+	model.add(TimeDistributed(Dense(sentvec_dim), name='Dense_layer'))  # wrapper layer, required to make 3d input to 2d output
 	model.load_weights(weights, by_name=True)
 	return model
 
@@ -135,11 +137,14 @@ def prob_pick(prob, temperature, n_pick):
 	prob = np.log(prob) / temperature
 	exp_prob = np.exp(prob)
 	prob = exp_prob / np.sum(exp_prob)
-	probability = np.random.multinomial(n_pick, prob, 1)
-	return np.argmax(probability)
+	idx = np.array([[], []])  # initializatio
+	while(len(idx[1])<n_pick): # run while it has full count
+		probability = np.random.multinomial(n_pick, prob, 1)
+		idx = np.where(probability==1)
+	return idx[1] # array containing picked indexes
 
 # function to generate text
-def generate_text(model, generate_sent_num, sent_size, sentvec_dim, ix_to_char, doc2vec_model):
+def generate_text_all_previous_step(model, generate_sent_num, sent_size, sentvec_dim, ix_to_char, doc2vec_model, n_pick):
 	'''
 	:param model: LSTM based model we made above
 	:param generate_length: how many sentences are we gonna generate
@@ -159,27 +164,36 @@ def generate_text(model, generate_sent_num, sent_size, sentvec_dim, ix_to_char, 
 		X[0,i,:] = doc2vec_model.docvecs[ix] # new input x
 		print(ix_to_char[ix], end='.' + "\n") # end는 캐릭터별로 만들거를 붙여쓰려고 예를 들면 a 엔터 p 엔터 p 엔터 l  엔터 e 이렇게 안뽑고 apple 처럼 concatenated form으로 뽑을라고
 		y_vec = model.predict(X[:, :i+1, :])[0,i] # predicted y vector
-		y_candidate = doc2vec_model.docvecs.most_similar([y_vec], topn=5)  # 가장 비슷한 거 3개 뽑는다.
+		y_candidate = doc2vec_model.docvecs.most_similar([y_vec], topn=7)  # pick 7 candidates first and then we will finally choose 3 among them probabilistically
+		print(y_candidate)
 
-		# 샘플 펑션으로 랜덤하게 픽 하는거 구현해야함
-		# 예를 들면 topn=5개 중에서 3개 뽑는거 이런거..
+		y_candidate_prob = []
+		for i in range(len(y_candidate)):
+			y_candidate_prob.append(y_candidate[i][1])
+		y_candidate_index = []
+		for i in range(len(y_candidate)):
+			y_candidate_index.append(y_candidate[i][0])
+
+		# process of choosing 'n_pick' number of candidates among 7
 		# y_candidate_prob = [y_candidate[0][1], y_candidate[1][1], y_candidate[2][1], y_candidate[4][1], y_candidate[4][1]]
 		# y_candidate_index = [y_candidate[0][0], y_candidate[1][0], y_candidate[2][0], y_candidate[3][0], y_candidate[4][0]]
-		# prob_pick(y_candidate_prob, temperature=0.8, n_pick=3)
 		# # print(y_candidate[0])  # (4, 0.7207441329956055)
 		# print(y_candidate[0][0])  # 4
 		# print(y_candidate[0][1])  # 0.7207441329956055
-		print(y_candidate)
-		print("1st sentence: " + ix_to_char[y_candidate[0][0]])
-		print("2nd sentence: " + ix_to_char[y_candidate[1][0]])
-		print("3rd sentence: " + ix_to_char[y_candidate[2][0]])
-		print("4th sentence: " + ix_to_char[y_candidate[3][0]])
-		print("5th sentence: " + ix_to_char[y_candidate[4][0]])
+		# print("1st sentence: " + ix_to_char[y_candidate[0][0]])
+		# print("2nd sentence: " + ix_to_char[y_candidate[1][0]])
+		# print("3rd sentence: " + ix_to_char[y_candidate[2][0]])
+		# print("4th sentence: " + ix_to_char[y_candidate[3][0]])
+		# print("5th sentence: " + ix_to_char[y_candidate[4][0]])
+
+		ix_candidate = prob_pick(y_candidate_prob, temperature=1, n_pick=n_pick)
+		for i in range(len(ix_candidate)):
+			print("sentence_{}: ".format(i+1) + ix_to_char[y_candidate[ix_candidate[i]][0]])
 		number = input("please choose one sentece: ")
 		print("\n")
-		ix = y_candidate[int(number)-1][0]
+		ix = y_candidate[ix_candidate[int(number)-1]][0]
 		# ix = int(number)
 		y_final.append(ix_to_char[ix]) # append into the list
 	print("\n")
-	print(y_final)
-	return ('. ').join(y_final) # concatenate the output
+	print("GENERATED PARAGRAPH: " + ('. ').join(y_final)) # concatenated output
+	return ('. ').join(y_final)

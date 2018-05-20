@@ -29,6 +29,7 @@ ap.add_argument('-hidden_dim', type=int, default=128)
 ap.add_argument('-generate_sent_num', type=int, default=15)
 ap.add_argument('-sentvec_dim', type=int, default=50)
 ap.add_argument('-epoch', type=int, default=200)
+ap.add_argument('-n_pick', type=int, default=3)
 # ap.add_argument('-mode', default='train')
 ap.add_argument('-weights', default='')
 # ap.add_argument('-weights', default='C:\\Users\\sunbl\\PycharmProjects\\gthesis\\zprojectstudy\\kt_contest\\novel_layer2_hidden256_epoch10.h5')
@@ -43,6 +44,7 @@ WEIGHTS = args['weights']
 GENERATE_SENT_NUM = args['generate_sent_num']
 LAYER_NUM = args['layer_num']
 SENTVEC_DIM = args['sentvec_dim']
+N_PICK = args['n_pick']
 
 documents, SENT_SIZE, ix_to_char, char_to_ix = load_data(DATA_DIR)
 sentence_vecs, doc2vec_model = sent_vec(documents, SENTVEC_DIM)
@@ -54,14 +56,14 @@ if WEIGHTS == '':
     epoch = 0
     while True: # run constantly to improve the performance
         print('\n\nEpoch: {}\n'.format(epoch))
-        model.fit(X, y, batch_size=100, verbose=1, epochs=1) # nb_epoch is deprecated, use epochs instead, verbose is an optional function showing the progress
+        model.fit(X, y, batch_size=50, verbose=1, epochs=1) # nb_epoch is deprecated, use epochs instead, verbose is an optional function showing the progress
         epoch += 1
         # generate_text(model, GENERATE_SENT_NUM, SENT_SIZE, ix_to_char)
         if epoch % 10 == 0: #  save the weights of  model for every 10 epochs
             model.save_weights('novel_layer2_hidden{}_epoch{}.h5'.format(HIDDEN_DIM, epoch))
-            generate_text(model, GENERATE_SENT_NUM, SENT_SIZE, SENTVEC_DIM, ix_to_char, doc2vec_model) # show output
+            generate_text_all_previous_step(model, GENERATE_SENT_NUM, SENT_SIZE, SENTVEC_DIM, ix_to_char, doc2vec_model, N_PICK) # show output
 elif WEIGHTS == 'novel_layer2_hidden256_epoch10.h5':
     trained_model = load_model(HIDDEN_DIM, SEQ_LENGTH, SENTVEC_DIM, WEIGHTS)
-    generate_text(trained_model, GENERATE_SENT_NUM, SENT_SIZE, SENTVEC_DIM, ix_to_char, doc2vec_model)
+    generate_text_all_previous_step(trained_model, GENERATE_SENT_NUM, SENT_SIZE, SENTVEC_DIM, ix_to_char, doc2vec_model, N_PICK)
 else:
     print('\n\nNothing to do!') # pop up error message
