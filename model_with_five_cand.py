@@ -60,9 +60,9 @@ if WEIGHTS == '':
 	epoch = 0
 	while True: # run constantly to improve the performance
 		print('\n\nEpoch: {}'.format(epoch))
-		model.fit(X, y, batch_size=BATCH_SIZE, verbose=0, epochs=1) # nb_epoch is deprecated, use epochs instead, verbose is an optional function showing the progress
-		model2.fit(X, y, batch_size=BATCH_SIZE, verbose=0, epochs=1)
-		model3.fit(X, y, batch_size=BATCH_SIZE, verbose=0, epochs=1)
+		model.fit(X, y, batch_size=BATCH_SIZE, verbose=1, epochs=1) # nb_epoch is deprecated, use epochs instead, verbose is an optional function showing the progress
+		model2.fit(X, y, batch_size=BATCH_SIZE, verbose=1, epochs=1)
+		model3.fit(X, y, batch_size=BATCH_SIZE, verbose=1, epochs=1)
 		epoch += 1
 		# generate_text(model, GENERATE_SENT_NUM, SENT_SIZE, ix_to_char)
 		if epoch % 10 == 0: #  save the weights of  model for every 10 epochs
