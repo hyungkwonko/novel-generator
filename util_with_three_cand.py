@@ -1,7 +1,7 @@
 
 ###############################################
 #### NOVEL GENERATING MODEL
-#### VER 1.0 (2018-5-16)
+#### VER 1.1 (2018-5-21)
 #### HANYANG UNIV.
 #### HYUNG-KWON KO
 #### hyungkwonko@gmail.com
@@ -39,20 +39,20 @@ def load_data(data_dir):
 	return documents, SENT_SIZE, ix_to_char, char_to_ix
 
 # function converting the input data into 3-dimensional data structure for keras model
-def load_xy(sent_size, seq_length, sentvec_dim, sentence_vecs):
+def load_xy(sent_size, timesteps, sentvec_dim, sentence_vecs):
 	'''
-	:param sent_size: number of sentences(will be 215 in this case)
-	:param seq_length: sequences I will take into account for each step(will be 15 in this case)
-	:param sentvec_dim: dimension of the sentence vector (will be 300 in this case)
+	:param sent_size: number of sentences(will be 211 in this case)
+	:param timesteps: How many steps I will go through(will be 15 in this case)
+	:param sentvec_dim: dimension of the sentence vector (will be 50 in this case)
 	:param sentence_vecs: list of sentence vectors
 	'''
 	# make zero-intialized cast like calloc in C
-	X = np.zeros((sent_size-seq_length, seq_length, sentvec_dim)) # reason for subtracting seq_length(15)?
-	y = np.zeros((sent_size-seq_length, seq_length, sentvec_dim))
-	for i in range(sent_size-seq_length): # run 215-15 times. first(0~14), second(1-15), ...last(199~213)
-		for j in range(seq_length):
-			X[i,j] = sentence_vecs[i+j] # X[0] = 0~14th sentences, X[1] = 1~15th, ... X[199] = 199~213rd
-			y[i,j] = sentence_vecs[i+j+1] # y[0] = 1~15th, y[1] = 2~16th, ..., y[199] = 200~214th
+	X = np.zeros((sent_size//timesteps, timesteps, sentvec_dim)) # sent_size//timesteps = sequence length(will be 14 in this case) that  we will put in one line
+	y = np.zeros((sent_size//timesteps, timesteps, sentvec_dim))
+	for i in range(sent_size//timesteps): # run 211//15 times. = 14
+		for j in range(timesteps):
+			X[i,j] = sentence_vecs[timesteps*i + j] # X[0] = 0~14th sentences, X[1] = 15~29th, ... X[13] = 196~210rd
+			y[i,j] = sentence_vecs[timesteps*i + j + 1] # y[0] = 1~15th, y[1] = 16~30th, ..., y[13] = 197~211h
 	return X, y # return X and y and they will be the input and target value
 
 # function to tokenize the sentence and merge the word with its PoS(part of speech)
@@ -68,11 +68,6 @@ def sent_vec(documents, sentvec_dim):
 	for i, text in enumerate(train_docs):
 		tags = [i]
 		docs.append(analyzedDocument(text, tags))
-	'''
-	min_count: If the appearance of the word is less than this number, then we will ignore that word
-	window: number of words around the target word we will take into consideration
-	worker: 
-	'''
 	model = doc2vec.Doc2Vec(vector_size=sentvec_dim, window=5, min_count=2, workers=4, alpha=0.025, min_alpha=1e-4, seed=777)
 	model.build_vocab(docs)  # Building vocabulary
 	model.train(docs, epochs=1000, total_examples=model.corpus_count)
@@ -83,10 +78,9 @@ def sent_vec(documents, sentvec_dim):
 
 # model generating function
 # https://keras.io/layers/recurrent/
-def generate_model(hidden_dim, seq_length, sentvec_dim):
+def generate_model(hidden_dim, sentvec_dim):
 	'''
 	:param hidden_dim: dimension of each matrix in the cell(have to be power of 2, for example 256, 512. why?)
-	:param seq_length: sequences I will take into account for each step(will be 15 in this case)
 	:param sentvec_dim: dimension of the sentence vector (will be 300 in this case)
 	return_state: whether to return both h_t and c_t. default is false since we generally don't use c_t(LTM, long term memory)
 	return _sequence: whether to print in sequence. For example, in case of many to many model, we have to set it TRUE. also for the stacked LSTM layers(obvious)
@@ -96,12 +90,13 @@ def generate_model(hidden_dim, seq_length, sentvec_dim):
 	:return: generated model
 	'''
 	model = Sequential()
-	model.add(Bidirectional(LSTM(hidden_dim, return_sequences=True), input_shape=(None, sentvec_dim), name='BiLSTM_layer')) # be careful what is inside the LSTM bracket and what is not
-	# model.add(LSTM(hidden_dim, return_sequences=True, input_shape=(None, sentvec_dim), name='input_LSTM_layer'))
-	model.add(Dropout(0.5))
-	# model.add(LSTM(hidden_dim, return_sequences=True, name='LSTM_layer2'))
-	model.add(LSTM(hidden_dim, return_sequences=True, name='LSTM_layer'))
-	model.add(Dropout(0.5))
+	model.add(Bidirectional(LSTM(hidden_dim, return_sequences=True, stateful=False),
+							input_shape=(None, sentvec_dim), name='BiLSTM_input_layer')) # be careful what is inside the LSTM bracket and what is not
+	# model.add(LSTM(hidden_dim, return_sequences=True, input_shape=(None, sentvec_dim), name='input_LSTM_layer')) # we can use also LSTM
+	model.add(Dropout(0.3))
+	model.add(LSTM(hidden_dim, return_sequences=True, stateful=False, name='LSTM_layer'))
+	model.add(Dropout(0.3))
+	model.add(Bidirectional(LSTM(hidden_dim, return_sequences=True, stateful=False, name='BiLSTM_output_layer')))
 	model.add(TimeDistributed(Dense(sentvec_dim), name='Dense_layer'))  # wrapper layer, required to make 3d input to 2d output
 	# model.compile(loss="categorical_crossentropy", optimizer="rmsprop")
 	optimizer = Adam(lr=0.0001, beta_1=0.9, beta_2=0.999, epsilon=None, decay=0.0, amsgrad=False)
@@ -111,20 +106,19 @@ def generate_model(hidden_dim, seq_length, sentvec_dim):
 	return model
 
 # if there is trained  model, we can just load it
-def load_model(hidden_dim, seq_length, sentvec_dim, weights):
+def load_model(hidden_dim, sentvec_dim, weights):
 	model = Sequential()
-	model.add(Bidirectional(LSTM(hidden_dim, return_sequences=True), input_shape=(None, sentvec_dim), name='BiLSTM_layer'))
-	# model.add(LSTM(hidden_dim, return_sequences=True, input_shape=(None, sentvec_dim), name='input_LSTM_layer'))
-	model.add(Dropout(0.5))
-	# model.add(LSTM(hidden_dim, return_sequences=True, name='LSTM_layer2'))
-	model.add(LSTM(hidden_dim, return_sequences=True, name='LSTM_layer'))
-	model.add(Dropout(0.5))
+	model.add(Bidirectional(LSTM(hidden_dim, return_sequences=True, stateful=False), input_shape=(None, sentvec_dim), name='BiLSTM_input_layer'))
+	model.add(Dropout(0.3))
+	model.add(LSTM(hidden_dim, return_sequences=True, stateful=False, name='LSTM_layer'))
+	model.add(Dropout(0.3))
+	model.add(Bidirectional(LSTM(hidden_dim, return_sequences=True, stateful=False, name='BiLSTM_output_layer')))
 	model.add(TimeDistributed(Dense(sentvec_dim), name='Dense_layer'))  # wrapper layer, required to make 3d input to 2d output
 	model.load_weights(weights, by_name=True)
 	return model
 
 # function to pick an index from a probability array
-def prob_pick(prob, temperature, n_pick):
+def pick_candidate(prob, temperature, n_pick):
 	'''
 	:param prob: probabilty array
 	:param temperature:
@@ -143,57 +137,93 @@ def prob_pick(prob, temperature, n_pick):
 		idx = np.where(probability==1)
 	return idx[1] # array containing picked indexes
 
-# function to generate text
-def generate_text_all_previous_step(model, generate_sent_num, sent_size, sentvec_dim, ix_to_char, doc2vec_model, n_pick):
-	'''
-	:param model: LSTM based model we made above
-	:param generate_length: how many sentences are we gonna generate
-	:param sent_size: number of sentences in the data
-	:param sentvec_dim: dimension of the sentence vector
-	:param ix_to_char: this convert index to sentence
-	:param doc2vec_model: document2vector model we made above
-	:return y_final: THE FINAL OUTCOME(novel we have generated)
-	'''
-	# starting with random character
+# function to generate text using five different models
+def generate_text(model, generate_sent_num, sent_size, sentvec_dim, ix_to_char, doc2vec_model):
 	ix = np.random.randint(sent_size) # pick one random value smaller than sent_size (random initial value)
-	# ix = 2 # we can just set it as the third value(0, 1, 2.. so 2 = third)
 	y_final = [ix_to_char[ix]] # return assigned sentence
 	X = np.zeros((1, generate_sent_num, sentvec_dim))
-	for i in range(generate_sent_num):
-		# appending the last predicted character to sequence
-		X[0,i,:] = doc2vec_model.docvecs[ix] # new input x
-		print(ix_to_char[ix], end='.' + "\n") # end는 캐릭터별로 만들거를 붙여쓰려고 예를 들면 a 엔터 p 엔터 p 엔터 l  엔터 e 이렇게 안뽑고 apple 처럼 concatenated form으로 뽑을라고
-		y_vec = model.predict(X[:, :i+1, :])[0,i] # predicted y vector
-		y_candidate = doc2vec_model.docvecs.most_similar([y_vec], topn=7)  # pick 7 candidates first and then we will finally choose 3 among them probabilistically
-		print(y_candidate)
+	for i in range(generate_sent_num): # appending the last predicted sentence to sequence
+		print(ix_to_char[ix], end='.' + "\n") # print out the current sentence
+		X0, ix0 = generate_text_all_previous_step(model, doc2vec_model, X, ix, i)
+		X1, ix1 = generate_text_one_previous_step(model, doc2vec_model, X, ix, i)
+		X2, ix2 = generate_text_two_previous_step(model, doc2vec_model, X, ix, i)
+		X3, ix3 = generate_text_all_previous_step(model, doc2vec_model, X, ix, i)
+		X4, ix4 = generate_text_all_previous_step(model, doc2vec_model, X, ix, i)
+		ix_set = [ix0, ix1, ix2, ix3, ix4]
+		X_set = [X0, X1, X2, X3, X4]
+		ix, X = pick_ix_X(ix_set, X_set, ix_to_char) # show and pick one
+		y_final.append(ix_to_char[ix]) # append into the output list
+	print("\n")
+	print("GENERATED PARAGRAPH: " + ('. ').join(y_final)) # concatenated output
+	return ('. ').join(y_final)
 
+# model 1 (generate from all previous steps in a cumulative manner)
+def generate_text_all_previous_step(model, doc2vec_model, X_old, ix, i):
+	X_old[0,i,:] = doc2vec_model.docvecs[ix] # new input x
+	y_vec = model.predict(X_old[:, :i+1, :])[0,i] # predicted y vector
+	y_candidate = doc2vec_model.docvecs.most_similar([y_vec], topn=7)  # pick 7 candidates first and then we will finally choose 3 among them probabilistically
+	y_candidate_prob = []
+	for i in range(len(y_candidate)):
+		y_candidate_prob.append(y_candidate[i][1])
+	y_candidate_index = []
+	for i in range(len(y_candidate)):
+		y_candidate_index.append(y_candidate[i][0])
+	# process of choosing 'n_pick' number of candidates among 7
+	ix_candidate = pick_candidate(y_candidate_prob, temperature=1, n_pick=1)
+	ix_new = y_candidate[ix_candidate[0]][0]
+	X_new = X_old
+	return X_new, ix_new # return the index 'ix'
+
+# model 2 (generate from one previous step, uses the same structure and doc2vec model as above)
+def generate_text_one_previous_step(model, doc2vec_model, X_old, ix, i):
+	X_old[0,i,:] = doc2vec_model.docvecs[ix] # new input x
+	X_temp = X_old[0,i,:].reshape(1,1,len(X_old[0,i,:])) # reshape (50,) -> (1,1,50)
+	y_vec = model.predict(X_temp)[0,0] # predicted y vector
+	y_candidate = doc2vec_model.docvecs.most_similar([y_vec], topn=7)  # pick 7 candidates first and then we will finally choose 3 among them probabilistically
+	y_candidate_prob = []
+	for i in range(len(y_candidate)):
+		y_candidate_prob.append(y_candidate[i][1])
+	y_candidate_index = []
+	for i in range(len(y_candidate)):
+		y_candidate_index.append(y_candidate[i][0])
+	# process of choosing 'n_pick' number of candidates among 7
+	ix_candidate = pick_candidate(y_candidate_prob, temperature=1, n_pick=1)
+	ix_new = y_candidate[ix_candidate[0]][0]
+	X_new = X_old
+	return X_new, ix_new # return the index 'ix'
+
+# model 3 (generate from two previous steps, uses the same structure and doc2vec model as above)
+def generate_text_two_previous_step(model, doc2vec_model, X_old, ix, i):
+	if(i<1): #  since we cannot put two inputs at first(X_-1, X_0), we need to use previous model to generate the first input X_1. after this step, we can use two X_i's
+		X_new, ix_new = generate_text_all_previous_step(model, doc2vec_model, X_old, ix, i)
+	else:
+		X_old[0,i,:] = doc2vec_model.docvecs[ix] # new input x
+		y_vec = model.predict(X_old[:, i-1:i+1, :])[0,1] # uses input as X_old[:, i-1:i+1, :] which means we will use two steps
+		y_candidate = doc2vec_model.docvecs.most_similar([y_vec], topn=7)  # pick 7 candidates first and then we will finally choose 3 among them probabilistically
 		y_candidate_prob = []
 		for i in range(len(y_candidate)):
 			y_candidate_prob.append(y_candidate[i][1])
 		y_candidate_index = []
 		for i in range(len(y_candidate)):
 			y_candidate_index.append(y_candidate[i][0])
-
 		# process of choosing 'n_pick' number of candidates among 7
-		# y_candidate_prob = [y_candidate[0][1], y_candidate[1][1], y_candidate[2][1], y_candidate[4][1], y_candidate[4][1]]
-		# y_candidate_index = [y_candidate[0][0], y_candidate[1][0], y_candidate[2][0], y_candidate[3][0], y_candidate[4][0]]
-		# # print(y_candidate[0])  # (4, 0.7207441329956055)
-		# print(y_candidate[0][0])  # 4
-		# print(y_candidate[0][1])  # 0.7207441329956055
-		# print("1st sentence: " + ix_to_char[y_candidate[0][0]])
-		# print("2nd sentence: " + ix_to_char[y_candidate[1][0]])
-		# print("3rd sentence: " + ix_to_char[y_candidate[2][0]])
-		# print("4th sentence: " + ix_to_char[y_candidate[3][0]])
-		# print("5th sentence: " + ix_to_char[y_candidate[4][0]])
+		ix_candidate = pick_candidate(y_candidate_prob, temperature=1, n_pick=1)
+		ix_new = y_candidate[ix_candidate[0]][0]
+		X_new = X_old
+	return X_new, ix_new # return the index 'ix'
 
-		ix_candidate = prob_pick(y_candidate_prob, temperature=1, n_pick=n_pick)
-		for i in range(len(ix_candidate)):
-			print("sentence_{}: ".format(i+1) + ix_to_char[y_candidate[ix_candidate[i]][0]])
-		number = input("please choose one sentece: ")
-		print("\n")
-		ix = y_candidate[ix_candidate[int(number)-1]][0]
-		# ix = int(number)
-		y_final.append(ix_to_char[ix]) # append into the list
+# show the candidates made by five different models and pick one of them
+def pick_ix_X(ix_set, X_set, ix_to_char):
+	'''
+	:param ix_set: set of ix's that are the candidate of next sentences'
+	:param X_set: set of X's that will be used as a next X
+	:param ix_to_char: convert index to sentence
+	:return: picked ix and X
+	'''
+	for i in range(len(ix_set)): # show
+		print("sentence_{}: ".format(i + 1) + ix_to_char[ix_set[i]])
+	number = input("please choose one sentece: ") # pick
 	print("\n")
-	print("GENERATED PARAGRAPH: " + ('. ').join(y_final)) # concatenated output
-	return ('. ').join(y_final)
+	ix = ix_set[int(number) - 1]  # next index
+	X = X_set[int(number) - 1]
+	return ix, X
