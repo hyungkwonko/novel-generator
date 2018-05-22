@@ -1,7 +1,7 @@
 
 ###############################################
 #### NOVEL GENERATING MODEL
-#### VER 1.2 (2018-5-21)
+#### VER 1.3 (2018-5-22)
 #### HANYANG UNIV.
 #### HYUNG-KWON KO
 #### hyungkwonko@gmail.com
@@ -23,12 +23,15 @@ def load_data(data_dir, sent_concat_num):
 	# data = open("C://users//sunbl//desktop//gaechukja.txt",'r').read()
 	data = open(data_dir, 'r').read() # read out the whole data set
 	# elements in the list will be removed using translate built-in function
+	# freq_set = Counter(data)
 	havetoerase = ['\n', '?', '!', '-', ':', ',', '(', ')', '<', '>', '金', '明', '天', '掃', '舍', ':'] # this characters will be removed
 	data = data.translate({ord(x): '' for x in havetoerase})
 	documents = re.split('\.|\"', data)
 	while '' in documents: documents.remove('')
 	while '  ' in documents: documents.remove('  ')
 	documents = [i for i in documents if len(i) > 10] # will only care about the sentence containing more than 10 characters.
+	for i in range(len(documents)): # get rid of empty space in the front and back
+		documents[i] = documents[i].strip()
 	# For example, if the sentence has 8 characters(hi peter.), it will be removed.
 	# I guess this would be helpful making logical connection between sentences since they have a possiblity to cause overfitting problem.
 	if(sent_concat_num==1):
@@ -248,8 +251,8 @@ def generate_text_two_to_two(model, doc2vec_model, ix_to_char, char_to_ix, model
 		y = doc2vec_model2.docvecs.most_similar([y_vec], topn=1)
 		next_sent = ix_to_char2[y[0][0]]
 		#5. 그 뽑은거 분리시켜서 앞에꺼만 쓰고 그거의 ix찾고 그 ix 해당하는 X벡터 찾아서 집어넣음
-		first_sent, _ = next_sent.split(".")
-		ix_new = char_to_ix[first_sent]
+		_, target_sent = next_sent.split(".")
+		ix_new = char_to_ix[target_sent.strip()]
 		X_old[0, i, :] = doc2vec_model.docvecs[ix_new]  # new input x
 		X_new = X_old
 		#6. 그 ix랑 X 리턴
@@ -274,8 +277,8 @@ def generate_text_three_to_three(model, doc2vec_model, ix_to_char, char_to_ix, m
 		y = doc2vec_model3.docvecs.most_similar([y_vec], topn=1)
 		next_sent = ix_to_char3[y[0][0]]
 		#5. 그 뽑은거 분리시켜서 앞에꺼만 쓰고 그거의 ix찾고 그 ix 해당하는 X벡터 찾아서 집어넣음
-		first_sent, _, _ = next_sent.split(".")
-		ix_new = char_to_ix[first_sent]
+		_, _, target_sent = next_sent.split(".")
+		ix_new = char_to_ix[target_sent.strip()]
 		X_old[0, i, :] = doc2vec_model.docvecs[ix_new]  # new input x
 		X_new = X_old
 		#6. 그 ix랑 X 리턴

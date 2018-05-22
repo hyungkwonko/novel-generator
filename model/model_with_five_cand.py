@@ -1,7 +1,7 @@
 
 ###############################################
 #### NOVEL GENERATING MODEL
-#### VER 1.2 (2018-5-21)
+#### VER 1.3 (2018-5-22)
 #### HANYANG UNIV.
 #### HYUNG-KWON KO
 #### hyungkwonko@gmail.com
@@ -60,7 +60,7 @@ if WEIGHTS == '':
 	epoch = 0
 	while True: # run constantly to improve the performance
 		print('\n\nEpoch: {}'.format(epoch))
-		model.fit(X, y, batch_size=BATCH_SIZE, verbose=1, epochs=1) # nb_epoch is deprecated, use epochs instead, verbose is an optional function showing the progress
+		model.fit(X, y, batch_size=BATCH_SIZE, verbose=1, epochs=1) # verbose is an optional function showing the progress
 		model2.fit(X, y, batch_size=BATCH_SIZE, verbose=1, epochs=1)
 		model3.fit(X, y, batch_size=BATCH_SIZE, verbose=1, epochs=1)
 		epoch += 1
