@@ -1,60 +1,34 @@
-# Novel generation using BiLSTM with Attention model
+﻿
+# [KT A.I. Web Novel Contest](https://blog.kt.com/1063)
 
-## BiLSTM & Attention
+![](https://github.com/hyungkwonko/novel-generator/blob/master/img/img1.jpg)
 
-There are many explanations on these method.
+Host: [Korea Telecom](https://corp.kt.com/)
 
-## Layer stacking
+Result: 2nd place
 
-If you’re running Jekyll v3.3+ and **self-hosting** you can quickly install the theme as Ruby gem:
+This repository includes 3 APIs made in news big data hackathon in April 2019. Teams were assigned to develop a business model to create value using news big data. We made a web service platform that shows multi-Indicator of given keyword to understand how influential it is. We made a **[demo video](https://youtu.be/NUF3Wh3QoEs)**.
 
-1. Add this line to your Jekyll site’s Gemfile:
+<br>
 
-    ```
-    gem "jekyll-theme-cayman-blog"
-    ```
+### [API 01. Sentiment Analysis](https://github.com/hyungkwonko/NewsBigDataAnalysis/tree/master/SentimentAnalysis)
+![](https://github.com/hyungkwonko/NewsBigDataAnalysis/blob/master/img/pic2.png)
 
-2. Add this line to your Jekyll site’s _config.yml file:
+With the neural network architecture, the model learns whether the given sentence is positive or negative. Going through the grid search made it possible to find the best parameter for the model. After building this model, we made a histogram which shows the sentiment toward a single keyword.
 
-    ```
-    theme: jekyll-theme-cayman-blog
-    ```
+<br>
 
-3. Then run Bundler to install the theme gem and dependencies:
+### [API 02. Related Keywords](https://github.com/hyungkwonko/NewsBigDataAnalysis/tree/master/RelatedKeywords)
+![](https://github.com/hyungkwonko/NewsBigDataAnalysis/blob/master/img/pic3.png)
 
-    ```
-    script/bootstrap
-    ```
+There are keywords that matters for each individual. We tried to combine the data we get from news article and the feelings of people from one of the famous social media, Twitter. Since Twitter data is free to use for everyone, we were able to use it getting more insight. 
 
-## 5 different models to choose next sentence
+<br>
 
-If you’re *hosting your blog with GitHub Pages* you’ll have to consider this:
+### [API 03. Article 2 Vector for clustering](https://github.com/hyungkwonko/NewsBigDataAnalysis/tree/master/A2V)
+![](https://github.com/hyungkwonko/NewsBigDataAnalysis/blob/master/img/pic4.png)
 
-:warning: As stated in the official [Jekyll documentation](https://jekyllrb.com/docs/themes/#installing-a-theme):
+![](https://github.com/hyungkwonko/NewsBigDataAnalysis/blob/master/img/pic5.png)
 
-> If you’re publishing your Jekyll site on [GitHub Pages](https://pages.github.com/), note that GitHub Pages supports only some gem-based themes. See [Supported Themes](https://pages.github.com/themes/) in GitHub’s documentation to see which themes are supported.
+By optimizing the deep learning architecture, we made a new classifying algorithm, so-called Article 2 Vector. We developed this since there are so many similar news articles on the Internet. We hoped that going through the process of Article 2 Vector would reduce the meaningless web searching time looking for the information that one had seen before. After appropriate preprocessing, it has the ability to distinguish one from another. It can work for clustering, as the similar articles have similar vectors in the higher dimension. We classified them based on the cosine similarity between them.
 
-Therefore, this theme, as well as many others, can not be installed in the same way as the ones officially supported by GitHub Pages (e.g. Cayman, Minima), a bit more effort has to be put on.
-
-The easiest way I found to install _Cayman Blog Theme_, is [installing the theme gem](gem-install), and then [converting the gem-based theme to regular theme](https://jekyllrb.com/docs/themes/#converting-gem-based-themes-to-regular-themes).
-
-Alternatively, for new projects, one could fork the whole theme, and keep only the interesting files.
-
-
-## Further work - Genetic algorithm
-
-This method is preferred for existing _Jekyll blogs_, as well as newly created ones. Notice that the files `index.md`, `about.md`, `contact.md` will be overwritten (only `index.md` is really needed, the other two are just placeholders).
-
-1. Install the theme gem: ` $ gem install jekyll-theme-cayman-blog`
-3. Run `$ gem env gemdir` to know where the gem was installed
-4. Open the folder shown in the output
-5. Open the folder `gems`
-5. Open the theme folder (e.g. `jekyll-theme-cayman-blog-0.0.5`)
-6. Copy all the files into your newly created or existing blog folder    
-7. Leave empty `theme` your site's `_config.yml`:
-
-    ```yml
-    theme:
-    ```
-6. Modify `_config.yml`, `about.md`, `contact.md` for your project
-7. [Customize the theme](customizing)
