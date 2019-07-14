@@ -1,9 +1,9 @@
 ﻿
 # [KT A.I. Web Novel Contest](https://blog.kt.com/1063)
 
-![](https://github.com/hyungkwonko/novel-generator/blob/master/img/img1.jpg)
+![](https://github.com/hyungkwonko/novel-generator/blob/master/img/img1.png)
 
-![](https://github.com/hyungkwonko/novel-generator/blob/master/img/img4.jpg)
+![](https://github.com/hyungkwonko/novel-generator/blob/master/img/img4.png)
 
 ### Host: [Korea Telecom](https://corp.kt.com/) / Result: 2nd place
 
