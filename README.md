@@ -5,5 +5,5 @@
 
 ### Host: [Korea Telecom](https://corp.kt.com/) / Result: 2nd place
 
-This repository introduces a project of writing novel with artificial intelligence done from Feburary to August 2018. The details are written in [Wiki page](www.google.com).
+This repository introduces a project of writing novel with artificial intelligence done from Feburary to August 2018. The details are written in [Wiki page](https://github.com/hyungkwonko/novel-generator/wiki/Project).
 
