@@ -11,12 +11,7 @@ This repository includes a project of writing novel with artificial intelligence
 
 This wiki page has the final report of the whole project process, and some of the presentation pages we did in the actual contest.
 
-<br>
-
-
 
 ### [2. Code](https://github.com/hyungkwonko/novel-generator/wiki/2.-Code)
-
-
 
 This wiki page covers the python code with detailed explanation. 
